@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/* Dark mode colors (default) */
+:root {
+  --midnight-black: #0a0a0f;
+  --deep-slate: #1b1b24;
+  --electric-blue: #3f8cff;
+  --soft-white: #f4f4f7;
+  --fog-grey: #a7a7b2;
+  --neon-violet: #8b5cff;
+  --mint-glow: #5cffc8;
+  --bg-line: rgba(255, 255, 255, 0.025);
+  --bg-ring: rgba(255, 255, 255, 0.02);
+  
+  /* Theme variables - dark mode defaults */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #1b1b24;
+  --bg-gradient-from: #0a0a0f;
+  --bg-gradient-to: #1b1b24;
+  --text-primary: #f4f4f7;
+  --text-secondary: #a7a7b2;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --dropdown-bg: #1b1b24;
+}
+
+/* Light mode colors */
+.light {
+  --bg-primary: #F5F7FB;
+  --bg-secondary: #ffffff;
+  --bg-gradient-from: #f8f9fc;
+  --bg-gradient-to: #eef1f8;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border-color: rgba(0, 0, 0, 0.12);
+  --card-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+  --bg-line: rgba(0, 0, 0, 0.03);
+  --bg-ring: rgba(0, 0, 0, 0.025);
+  
+  /* Keep brand colors the same */
+  --electric-blue: #3f8cff;
+  --neon-violet: #8b5cff;
+}
+
+/* Dark mode explicit */
+.dark {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #1b1b24;
+  --bg-gradient-from: #0a0a0f;
+  --bg-gradient-to: #1b1b24;
+  --text-primary: #f4f4f7;
+  --text-secondary: #a7a7b2;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --dropdown-bg: #1b1b24;
+  
+  --soft-white: #f4f4f7;
+  --fog-grey: #a7a7b2;
+  --midnight-black: #0a0a0f;
+  --deep-slate: #1b1b24;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-secondary);
+  --color-primary: var(--electric-blue);
+  --color-muted: var(--text-secondary);
+  --color-accent: var(--neon-violet);
+  --radius-lg: 20px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --font-sans: var(--font-inter);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--bg-gradient-from) 0%, var(--bg-gradient-to) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+  position: relative;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(63, 140, 255, 0.25);
+  color: var(--text-primary);
+}
+
+/* Animated background layers */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body::before {
+  width: 120vmax;
+  height: 120vmax;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      var(--bg-ring) 0 1px,
+      transparent 16px 36px
+    ),
+    radial-gradient(circle at 20% 30%, var(--electric-blue) 10%, transparent 35%),
+    radial-gradient(circle at 80% 70%, var(--neon-violet) 8%, transparent 32%);
+  opacity: 0.12;
+  animation: swirl 38s linear infinite;
+  transform-origin: center center;
+  border-radius: 50%;
+}
+
+body::after {
+  inset: -20%;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      var(--bg-line) 0 1px,
+      transparent 1px 28px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      var(--bg-line) 0 1px,
+      transparent 1px 28px
+    );
+  opacity: 0.1;
+  animation: drift 42s linear infinite;
+}
+
+@keyframes swirl {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.04); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes drift {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-3%, -2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Animated gradient shift for showcase cards */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 8s ease infinite;
+}
