@@ -116,15 +116,15 @@ body::before {
   left: 50%;
   transform: translate(-50%, -50%);
   background:
-    repeating-radial-gradient(
-      circle at 50% 50%,
-      var(--bg-ring) 0 1px,
-      transparent 16px 36px
-    ),
-    radial-gradient(circle at 20% 30%, var(--electric-blue) 10%, transparent 35%),
-    radial-gradient(circle at 80% 70%, var(--neon-violet) 8%, transparent 32%);
+  repeating-radial-gradient(
+    circle at 50% 50%,
+    var(--bg-ring) 0 1px,
+    transparent 16px 36px
+  ),
+  radial-gradient(circle at 20% 30%, var(--electric-blue) 10%, transparent 35%),
+  radial-gradient(circle at 80% 70%, var(--neon-violet) 8%, transparent 32%);
   opacity: 0.12;
-  animation: swirl 38s linear infinite;
+  animation: swirlPulse 32s linear infinite;
   transform-origin: center center;
   border-radius: 50%;
 }
@@ -146,10 +146,12 @@ body::after {
   animation: drift 42s linear infinite;
 }
 
-@keyframes swirl {
-  0% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.04); }
-  100% { transform: rotate(360deg) scale(1); }
+@keyframes swirlPulse {
+  0% { transform: translate(-50%, -50%) rotate(0deg) scale(0.94); }
+  35% { transform: translate(-50%, -50%) rotate(120deg) scale(1.08); }
+  50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.1); }
+  70% { transform: translate(-50%, -50%) rotate(250deg) scale(1.02); }
+  100% { transform: translate(-50%, -50%) rotate(360deg) scale(0.94); }
 }
 
 @keyframes drift {

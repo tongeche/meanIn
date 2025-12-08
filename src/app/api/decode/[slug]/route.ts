@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOpenAIOrNull } from "@/lib/openai/client";
 import { decodePrompt } from "@/lib/openai/prompts";
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
 export async function GET(
   request: Request,
@@ -19,11 +20,13 @@ export async function GET(
       .from("posts")
       .select(
         `
+        id,
         text,
         keyword_text,
         platform,
         public_slug,
         keyword_term_id,
+        tag_slug,
         terms:keyword_term_id (
           phrase,
           status,
@@ -61,14 +64,25 @@ export async function GET(
       }
     }
 
+    // Log this decode for analytics
+    await logDecode(supabase, post.id, meaning);
+
+    // Get decode count for this post
+    const { count: decodeCount } = await supabase
+      .from("decodes")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", post.id);
+
     return NextResponse.json({
       post: {
         text: post.text,
         keywordText: post.keyword_text,
         platform: post.platform,
         slug: post.public_slug,
+        tagSlug: post.tag_slug,
       },
       meaning,
+      decodeCount: decodeCount || 0,
     });
   } catch (error) {
     console.error("Decode route error:", error);
@@ -94,11 +108,13 @@ type ParsedAIMeaning = {
 };
 
 type PostRow = {
+  id: string;
   text: string;
   keyword_text: string;
   platform: string;
   public_slug: string;
   keyword_term_id?: string | null;
+  tag_slug?: string | null;
   terms?: {
     phrase: string;
     status?: string | null;
@@ -290,5 +306,38 @@ async function recordInterest(
       .maybeSingle();
   } catch (error) {
     console.warn("Failed to record term request", error);
+  }
+}
+
+// Log each decode for analytics
+async function logDecode(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  postId: string,
+  meaning: {
+    baseMeaning: string;
+    contextualMeaning: string;
+    localContext?: string | null;
+  },
+) {
+  try {
+    // Get viewer context from headers
+    const headersList = await headers();
+    const acceptLanguage = headersList.get("accept-language");
+    const viewerLanguage = acceptLanguage?.split(",")[0]?.split("-")[0] || null;
+    
+    // Create a summary of the decode
+    const decodedText = `${meaning.baseMeaning} ${meaning.contextualMeaning}`.slice(0, 500);
+    
+    await supabase.from("decodes").insert({
+      post_id: postId,
+      decoded_text: decodedText,
+      base_meaning: meaning.baseMeaning,
+      contextual_meaning: meaning.contextualMeaning,
+      local_context: meaning.localContext || null,
+      viewer_language: viewerLanguage,
+    });
+  } catch (error) {
+    // Non-blocking - just log the error
+    console.warn("Failed to log decode", error);
   }
 }

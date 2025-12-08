@@ -5,7 +5,7 @@
 # Run `make help` to see all available commands
 # ===========================================
 
-.PHONY: help db-push db-pull db-reset db-diff db-new db-seed db-status db-studio db-types dev setup
+.PHONY: help db-push db-pull db-reset db-diff db-new db-seed db-status db-studio db-types dev setup git-save git-push git-sync git-status
 
 # Default target
 help:
@@ -24,6 +24,12 @@ help:
 	@echo "  make db-status      Check migration status"
 	@echo "  make db-studio      Open Supabase Studio locally"
 	@echo "  make db-types       Generate TypeScript types from schema"
+	@echo ""
+	@echo "Git Commands:"
+	@echo "  make git-status     Show git status"
+	@echo "  make git-save MSG=x Commit all changes with message"
+	@echo "  make git-push       Push to GitHub"
+	@echo "  make git-sync       Pull latest, commit, and push"
 	@echo ""
 	@echo "Development Commands:"
 	@echo "  make setup          Initial project setup"
@@ -137,6 +143,40 @@ lint:
 # Run TypeScript type checking
 typecheck:
 	npm run typecheck
+
+# ===========================================
+# Git Commands
+# ===========================================
+
+# Show git status
+git-status:
+	@git status
+
+# Commit all changes with message (usage: make git-save MSG="your message")
+git-save:
+ifndef MSG
+	$(error MSG is required. Usage: make git-save MSG="your commit message")
+endif
+	@git add -A
+	@git commit -m "$(MSG)"
+	@echo "✅ Changes committed"
+
+# Push to GitHub
+git-push:
+	@git push origin main
+	@echo "✅ Pushed to GitHub"
+
+# Pull latest, commit, and push (usage: make git-sync MSG="your message")
+git-sync:
+ifndef MSG
+	$(error MSG is required. Usage: make git-sync MSG="your commit message")
+endif
+	@echo "🔄 Syncing with GitHub..."
+	@git pull --rebase origin main || true
+	@git add -A
+	@git commit -m "$(MSG)" || echo "Nothing to commit"
+	@git push origin main
+	@echo "✅ Synced with GitHub"
 
 # ===========================================
 # Reconciliation Workflow

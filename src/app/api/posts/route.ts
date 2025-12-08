@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const text = typeof body.text === "string" ? body.text.trim() : "";
     const platform = body.platform as Platform;
+    const providedTagSlug = typeof body.tagSlug === "string" ? body.tagSlug : null;
 
     if (!text) {
       return NextResponse.json(
@@ -71,12 +72,16 @@ export async function POST(request: Request) {
     await ensureMeaningExists(supabase, termId, keyword);
     const publicSlug = await createUniquePostSlug(supabase);
 
+    // Detect or use provided tag
+    const tagSlug = providedTagSlug || await detectTagSlug(supabase, text, keyword);
+
   const { error: insertError } = await supabase.from("posts").insert({
     text,
     keyword_text: keyword,
     keyword_term_id: termId,
     platform,
     public_slug: publicSlug,
+    tag_slug: tagSlug,
     });
 
     if (insertError) {
@@ -102,6 +107,7 @@ export async function POST(request: Request) {
         text,
         meaning: meaningText,
         bucket: process.env.STORAGE_BUCKET || "cards",
+        tagSlug: (tagSlug as import("@/lib/types").TagSlug) || "general",
       });
       cardUrl = card.cardUrl;
     } catch (cardError) {
@@ -113,6 +119,7 @@ export async function POST(request: Request) {
       shareUrl,
       cardUrl,
       keyword,
+      tagSlug,
     });
   } catch (error) {
     console.error(error);
@@ -309,4 +316,70 @@ async function recordInterest(
   } catch (error) {
     console.warn("Failed to record term request", error);
   }
+}
+
+// Tag detection keywords
+const TAG_KEYWORDS: Record<string, string[]> = {
+  love: ["love", "heart", "relationship", "romance", "miss", "crush", "feelings", "bae", "babe", "forever"],
+  conflict: ["fight", "argue", "angry", "hate", "mad", "beef", "drama", "toxic", "revenge", "war"],
+  existential: ["life", "death", "meaning", "purpose", "soul", "universe", "exist", "why", "heaven", "hell", "god"],
+  growth: ["grow", "learn", "improve", "better", "success", "grind", "level up", "evolve", "progress", "journey"],
+  hustle: ["money", "work", "hustle", "grind", "boss", "bread", "bag", "rich", "wealth", "business"],
+  shade: ["shade", "petty", "salty", "jealous", "fake", "snake", "backstab", "trust", "friend"],
+  peace: ["peace", "calm", "relax", "chill", "zen", "quiet", "silent", "meditation", "vibes"],
+  faith: ["faith", "god", "pray", "bless", "church", "believe", "spirit", "amen", "hope"],
+  flex: ["flex", "drip", "swag", "expensive", "luxury", "designer", "show off", "winner"],
+};
+
+async function detectTagSlug(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  text: string,
+  keyword: string,
+): Promise<string> {
+  const lowerText = text.toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  
+  // Check keyword and text against tag keywords
+  for (const [tagSlug, keywords] of Object.entries(TAG_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerText.includes(kw) || lowerKeyword.includes(kw)) {
+        // Verify tag exists in DB
+        const { data } = await supabase
+          .from("tags")
+          .select("slug")
+          .eq("slug", tagSlug)
+          .maybeSingle();
+        
+        if (data) return tagSlug;
+      }
+    }
+  }
+  
+  // Try AI detection if available
+  const ai = getOpenAIOrNull();
+  if (ai) {
+    try {
+      const completion = await ai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [{
+          role: "user",
+          content: `Classify this text into ONE of these categories: love, conflict, existential, growth, hustle, shade, peace, faith, flex, general.
+
+Text: "${text}"
+
+Respond with JSON: {"tag": "category_name"}`
+        }],
+        response_format: { type: "json_object" },
+        max_tokens: 50,
+      });
+      const parsed = safeJson(completion.choices?.[0]?.message?.content || "{}");
+      if (parsed.tag && TAG_KEYWORDS[parsed.tag]) {
+        return parsed.tag;
+      }
+    } catch (error) {
+      console.warn("Tag detection AI failed", error);
+    }
+  }
+  
+  return "general";
 }

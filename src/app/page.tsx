@@ -10,7 +10,7 @@ import { Footer } from "@/components/Footer";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { createPost } from "@/lib/api";
 import type { CreatePostResult, Platform } from "@/lib/types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 const DEFAULT_PLATFORM: Platform = "whatsapp-status";
@@ -48,7 +48,7 @@ const HERO_BADGES = [
   "Cultural nuance included",
 ];
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const prefill = searchParams.get("prefill") || "";
   const [text, setText] = useState(prefill);
@@ -300,5 +300,25 @@ export default function Home() {
         cardUrl={result?.cardUrl}
       />
     </div>
+  );
+}
+
+function HomeLoading() {
+  return (
+    <div className="relative isolate overflow-hidden">
+      <Header />
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-5">
+        <div className="animate-pulse text-[var(--text-secondary)]">Loading...</div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<HomeLoading />}>
+      <HomeContent />
+    </Suspense>
   );
 }
