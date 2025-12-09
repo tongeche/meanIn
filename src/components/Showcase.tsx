@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 interface ShowcasePost {
   id: string;
@@ -25,6 +25,11 @@ function getCardGradient(keyword: string): string {
   return gradients[hash % gradients.length];
 }
 
+// Keep category labels short for mobile while preserving the full value on hover
+function formatCategoryLabel(cat: string) {
+  return cat.length > 16 ? `${cat.slice(0, 16)}…` : cat;
+}
+
 export function Showcase() {
   const [posts, setPosts] = useState<ShowcasePost[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -32,34 +37,43 @@ export function Showcase() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchShowcase();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory]);
+    let isMounted = true;
+    setLoading(true);
 
-  const fetchShowcase = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (activeCategory !== 'All') {
-        params.set('category', activeCategory);
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        if (activeCategory !== 'All') {
+          params.set('category', activeCategory);
+        }
+
+        const res = await fetch(`/api/showcase?${params}`);
+        const data = await res.json();
+
+        if (!isMounted) return;
+        setPosts(data.posts || []);
+        if (data.categories?.length) {
+          setCategories(data.categories);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching showcase:', error);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      
-      const res = await fetch(`/api/showcase?${params}`);
-      const data = await res.json();
-      
-      setPosts(data.posts || []);
-      if (data.categories?.length && categories.length === 0) {
-        setCategories(data.categories);
-      }
-    } catch (error) {
-      console.error('Error fetching showcase:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategory]);
 
   const handleShare = async (post: ShowcasePost) => {
     const shareUrl = `${window.location.origin}/p/${post.public_slug}`;
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -67,14 +81,13 @@ export function Showcase() {
           text: post.text,
           url: shareUrl,
         });
+        return;
       } catch {
-        // User cancelled or share failed, copy to clipboard as fallback
-        await navigator.clipboard.writeText(shareUrl);
+        // fall back to clipboard
       }
-    } else {
-      // Fallback: copy to clipboard
-      await navigator.clipboard.writeText(shareUrl);
     }
+
+    await navigator.clipboard.writeText(shareUrl);
   };
 
   // If no posts, don't render the section
@@ -95,11 +108,14 @@ export function Showcase() {
 
       {/* Category Tabs */}
       {categories.length > 0 && (
-        <div className="flex justify-center mb-10">
-          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-[var(--card-bg)] border border-[var(--border-color)]">
+        <div className="flex mb-10 justify-center">
+          <div
+            className="flex w-full max-w-3xl items-center gap-2 overflow-x-auto rounded-full bg-[var(--card-bg)] border border-[var(--border-color)] px-2 py-1 no-scrollbar"
+            style={{ scrollbarWidth: 'none' }}
+          >
             <button
               onClick={() => setActiveCategory('All')}
-              className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+              className={`min-w-[64px] max-w-[140px] truncate whitespace-nowrap flex-shrink-0 px-3 py-2 text-sm font-medium rounded-full transition-colors ${
                 activeCategory === 'All'
                   ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -111,13 +127,14 @@ export function Showcase() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+                className={`min-w-[64px] max-w-[160px] truncate whitespace-nowrap flex-shrink-0 px-3 py-2 text-sm font-medium rounded-full transition-colors ${
                   activeCategory === cat
                     ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
+                title={cat}
               >
-                {cat}
+                {formatCategoryLabel(cat)}
               </button>
             ))}
           </div>
@@ -137,85 +154,123 @@ export function Showcase() {
         </div>
       )}
 
-      {/* Posts Grid */}
+      {/* Posts Grid / Carousel */}
       {!loading && posts.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post, index) => (
-            <div key={post.id} className="group">
-              {/* Card Preview */}
-              <Link
-                href={`/p/${post.public_slug}`}
-                className="block relative aspect-[4/3] rounded-xl overflow-hidden border border-[var(--border-color)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg"
-              >
-                {/* Animated gradient background */}
-                <div
-                  className="absolute inset-0 animate-gradient-shift"
-                  style={{
-                    background: `linear-gradient(135deg, ${getCardGradient(post.keyword_text)})`,
-                    backgroundSize: '200% 200%',
-                    animationDelay: `${index * 0.5}s`,
-                  }}
-                />
-                {/* Share Button */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleShare(post);
-                  }}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-black/30 hover:bg-black/50 backdrop-blur-sm text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
-                  aria-label="Share or download"
+        <>
+          <div className="hidden sm:grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {posts.map((post, index) => (
+              <div key={post.id} className="group">
+                <Link
+                  href={`/p/${post.public_slug}`}
+                  className="block relative aspect-[4/3] rounded-xl overflow-hidden border border-[var(--border-color)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg"
                 >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  <div
+                    className="absolute inset-0 animate-gradient-shift"
+                    style={{
+                      background: `linear-gradient(135deg, ${getCardGradient(post.keyword_text)})`,
+                      backgroundSize: '200% 200%',
+                      animationDelay: `${index * 0.5}s`,
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleShare(post);
+                    }}
+                    className="absolute top-3 right-3 p-2 rounded-lg bg-black/30 hover:bg-black/50 backdrop-blur-sm text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
+                    aria-label="Share or download"
                   >
-                    <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-                    <polyline points="16 6 12 2 8 6" />
-                    <line x1="12" y1="2" x2="12" y2="15" />
-                  </svg>
-                </button>
-
-                {/* Card Content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                  <p className="text-white/80 text-sm sm:text-base leading-relaxed line-clamp-4">
-                    &ldquo;{post.text}&rdquo;
-                  </p>
-                </div>
-              </Link>
-
-              {/* Title + Arrow */}
-              <Link
-                href={`/p/${post.public_slug}`}
-                className="mt-3 flex items-center gap-1"
-              >
-                <span className="text-[var(--text-primary)] font-medium group-hover:text-[var(--electric-blue)] transition-colors">
-                  {post.keyword_text}
-                </span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[var(--text-primary)] group-hover:text-[var(--electric-blue)] transition-all group-hover:translate-x-0.5"
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                  </button>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                    <p className="text-white/80 text-sm sm:text-base leading-relaxed line-clamp-4">
+                      &ldquo;{post.text}&rdquo;
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  href={`/p/${post.public_slug}`}
+                  className="mt-4 block text-sm font-medium text-[var(--text-primary)] text-center"
+                  title={post.keyword_text}
                 >
-                  <line x1="7" y1="17" x2="17" y2="7" />
-                  <polyline points="7 7 17 7 17 17" />
-                </svg>
-              </Link>
-            </div>
-          ))}
-        </div>
+                  {post.keyword_text}
+                  <span className="ml-1 text-[var(--electric-blue)]">↗</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-5 overflow-x-auto pb-2 sm:hidden">
+            {posts.map((post, index) => (
+              <div key={post.id} className="group min-w-[80vw] max-w-[90vw]">
+                <Link
+                  href={`/p/${post.public_slug}`}
+                  className="block relative aspect-[4/3] rounded-xl overflow-hidden border border-[var(--border-color)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg"
+                >
+                  <div
+                    className="absolute inset-0 animate-gradient-shift"
+                    style={{
+                      background: `linear-gradient(135deg, ${getCardGradient(post.keyword_text)})`,
+                      backgroundSize: '200% 200%',
+                      animationDelay: `${index * 0.5}s`,
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleShare(post);
+                    }}
+                    className="absolute top-3 right-3 p-2 rounded-lg bg-black/30 hover:bg-black/50 backdrop-blur-sm text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 z-10"
+                    aria-label="Share or download"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                  </button>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                    <p className="text-white/80 text-sm leading-relaxed line-clamp-4">
+                      &ldquo;{post.text}&rdquo;
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  href={`/p/${post.public_slug}`}
+                  className="mt-4 block text-sm font-medium text-[var(--text-primary)] text-center"
+                  title={post.keyword_text}
+                >
+                  {post.keyword_text}
+                  <span className="ml-1 text-[var(--electric-blue)]">↗</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

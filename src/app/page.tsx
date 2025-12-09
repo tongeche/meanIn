@@ -104,52 +104,47 @@ function HomeContent() {
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-14 px-5 pt-24 pb-12 lg:gap-20 lg:pt-28 lg:pb-16">
         <section className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <ScrollReveal animation="fade-up" delay={100}>
-            <div className="grid gap-6">
+            <div className="grid gap-6 text-center lg:text-left">
               <p className="text-sm uppercase tracking-[0.2em] text-[var(--text-secondary)]">
                 Decode meaning
               </p>
               <h1 className="text-4xl font-semibold leading-tight text-[var(--text-primary)] sm:text-5xl">
                 Decode what they meant.
               </h1>
-              <p className="text-lg text-[var(--text-secondary)]">
+              <p className="text-lg text-[var(--text-secondary)] max-w-xl mx-auto lg:mx-0">
                 Turn any sentence into a story card with a one-click explanation
                 people actually understand.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
                 <a
                   href="#create"
                   className="rounded-full bg-[var(--electric-blue)] px-5 py-3 text-sm font-semibold text-white shadow-md shadow-black/25 transition hover:bg-[#5b9eff]"
                 >
-                Create your post
-              </a>
-              <a
-                href="#how"
-                className="rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)]"
-              >
-                See how decoding works
-              </a>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm text-[var(--text-secondary)]">
-              {HERO_BADGES.map((badge) => (
-                <span
-                  key={badge}
-                  className="inline-flex items-center gap-2 rounded-full bg-[var(--card-bg)] px-4 py-2 ring-1 ring-[var(--border-color)]"
+                  Create your post
+                </a>
+                <a
+                  href="#how"
+                  className="hidden rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] sm:inline-flex"
                 >
-                  <span className="h-2 w-2 rounded-full bg-[var(--electric-blue)]" />
-                  {badge}
-                </span>
-              ))}
-            </div>
+                  See how decoding works
+                </a>
+              </div>
+              <div className="hidden flex-wrap gap-3 text-sm text-[var(--text-secondary)] md:flex">
+                {HERO_BADGES.map((badge) => (
+                  <span
+                    key={badge}
+                    className="inline-flex items-center gap-2 rounded-full bg-[var(--card-bg)] px-4 py-2 ring-1 ring-[var(--border-color)]"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-[var(--electric-blue)]" />
+                    {badge}
+                  </span>
+                ))}
+              </div>
             </div>
           </ScrollReveal>
 
           <ScrollReveal animation="fade-left" delay={300}>
-            <div className="relative overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--card-bg)] p-6 shadow-[0_15px_45px_rgba(0,0,0,0.35)]">
-              <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-10 top-8 h-40 w-40 rounded-full bg-[var(--electric-blue)]/15 blur-3xl" />
-                <div className="absolute right-0 bottom-0 h-48 w-48 translate-x-10 translate-y-6 rounded-full bg-[var(--neon-violet)]/15 blur-[110px]" />
-              </div>
-              <div className="relative flex justify-center">
+            <div className="flex justify-center">
               <StoryCard
                 text="My silence is loud, but some people only hear noise."
                 slug="signal"
@@ -160,19 +155,9 @@ function HomeContent() {
                   </span>
                 }
               />
-              </div>
             </div>
           </ScrollReveal>
         </section>
-
-        {/* Divider */}
-        <ScrollReveal animation="fade" delay={100}>
-          <div className="w-full border-t border-[var(--electric-blue)]/50" />
-        </ScrollReveal>
-
-        <ScrollReveal animation="fade-up" delay={200}>
-          <Showcase />
-        </ScrollReveal>
 
         <ScrollReveal animation="fade-up" delay={100}>
           <section
@@ -251,7 +236,16 @@ function HomeContent() {
               </div>
             )}
           </form>
-          </section>
+        </section>
+        </ScrollReveal>
+
+        {/* Divider */}
+        <ScrollReveal animation="fade" delay={100}>
+          <div className="w-full border-t border-[var(--electric-blue)]/50" />
+        </ScrollReveal>
+
+        <ScrollReveal animation="fade-up" delay={200}>
+          <Showcase />
         </ScrollReveal>
 
         <ScrollReveal animation="fade-up" delay={150}>
