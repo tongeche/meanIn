@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-const NAV_LINKS = ["Showcase", "Docs", "Blog", "Templates", "Enterprise"];
+const NAV_LINKS = ["Showcase", "Blog", "Templates"];
 
 type SearchResult = {
   slug: string;
@@ -14,6 +15,7 @@ type SearchResult = {
 
 export function Header() {
   const router = useRouter();
+  const [authed, setAuthed] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,15 @@ export function Header() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const init = async () => {
+      if (!supabaseBrowser) return;
+      const { data } = await supabaseBrowser.auth.getSession();
+      setAuthed(!!data.session);
+      supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+        setAuthed(!!session);
+      });
+    };
+    void init();
     return () => {
       if (abortRef.current) abortRef.current.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -80,6 +91,18 @@ export function Header() {
     if (results[0]) {
       handleSelect(results[0].slug);
     }
+  };
+
+  const handleAuthToggle = async () => {
+    if (!authed) {
+      router.push("/login");
+      return;
+    }
+    if (supabaseBrowser) {
+      await supabaseBrowser.auth.signOut();
+    }
+    setAuthed(false);
+    router.push("/");
   };
 
   return (
@@ -201,6 +224,13 @@ export function Header() {
             >
               Create
             </Link>
+            <button
+              type="button"
+              onClick={handleAuthToggle}
+              className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)]"
+            >
+              {authed ? "Logout" : "Sign up"}
+            </button>
           </div>
         </div>
       </nav>
