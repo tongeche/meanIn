@@ -27,22 +27,18 @@ export default function CreatorsLanding() {
   const [platform] = useState<Platform>(DEFAULT_PLATFORM);
   const [result, setResult] = useState<CreatePostResult | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
-  const [suggestedTerms] = useState<string[]>(FALLBACK_TERMS);
+  type SuggestionItem = { short: string; full: string };
+  const shorten = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed.length <= 38) return { short: trimmed, full: trimmed };
+    return { short: `${trimmed.slice(0, 35)}...`, full: trimmed };
+  };
+  const [suggestedTerms, setSuggestedTerms] = useState<SuggestionItem[]>(FALLBACK_TERMS.map(shorten));
   const [showShareModal, setShowShareModal] = useState(false);
   const [predictions, setPredictions] = useState<string[]>([]);
   const [predicting, setPredicting] = useState(false);
   const [predictError, setPredictError] = useState("");
-  const [dayMood, setDayMood] = useState("");
-  const [autoPredicted, setAutoPredicted] = useState(false);
-  const MOODS = [
-    "Great day",
-    "Alright",
-    "Low energy",
-    "Stressed",
-    "Excited",
-    "Reflective",
-    "Busy",
-  ];
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,9 +70,11 @@ export default function CreatorsLanding() {
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const token = sessionData.session?.access_token;
         if (!token) {
-          throw new Error("Please sign in to get suggestions.");
+          setPredictError("Please sign in to get suggestions.");
+          setPredicting(false);
+          return;
         }
-        const seedPayload = seedOverride || text || dayMood;
+        const seedPayload = seedOverride || text;
         const res = await fetch("/api/creator-predict", {
           method: "POST",
           headers: {
@@ -89,7 +87,13 @@ export default function CreatorsLanding() {
         if (!res.ok) {
           throw new Error(data.error || "Could not fetch suggestions");
         }
-        setPredictions(data.suggestions || []);
+        const newSuggestions: string[] = data.suggestions || [];
+        setPredictions(newSuggestions);
+        if (newSuggestions.length > 0) {
+          setSuggestedTerms(newSuggestions.slice(0, 6).map(shorten));
+        } else {
+          setSuggestedTerms(FALLBACK_TERMS.map(shorten));
+        }
       } catch (error) {
         console.error(error);
         setPredictError(error instanceof Error ? error.message : "Could not fetch suggestions");
@@ -97,78 +101,30 @@ export default function CreatorsLanding() {
         setPredicting(false);
       }
     },
-    [dayMood, text],
+    [text],
   );
 
   useEffect(() => {
-    if (!autoPredicted) {
-      setAutoPredicted(true);
-      void handlePredict();
-    }
-  }, [autoPredicted, handlePredict]);
+    void handlePredict();
+  }, [handlePredict]);
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Header />
-      <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-5 pt-24 pb-16 lg:max-w-7xl lg:pt-28">
-        <section className="grid gap-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.25)] sm:p-8">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--card-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)] ring-1 ring-[var(--border-color)]">
-            Create a post
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-5 pt-24 pb-16 lg:max-w-7xl lg:pt-28">
+        <section className="grid w-full min-w-0 gap-5 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-5 shadow-[0_12px_32px_rgba(0,0,0,0.25)] sm:p-8">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--card-bg)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)] ring-1 ring-[var(--border-color)]">
+            Share-ready status
           </div>
-          <p className="text-base text-[var(--text-secondary)]">
-            Drop a line and we&apos;ll generate a share-ready link and card, tuned to your profile.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-[var(--text-secondary)]">How was your day?</span>
-            <div className="flex flex-wrap gap-2">
-              {MOODS.map((mood) => (
-                <button
-                  key={mood}
-                  type="button"
-                  onClick={() => {
-                    setDayMood(mood);
-                    void handlePredict(mood);
-                  }}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-sm transition",
-                    dayMood === mood
-                      ? "border-[var(--electric-blue)] bg-[var(--electric-blue)]/10 text-[var(--text-primary)]"
-                      : "border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]",
-                  )}
-                >
-                  {mood}
-                </button>
-              ))}
-            </div>
+          <div className="grid gap-1">
+            <h2 className="text-xl font-semibold text-white">One tap to create & share</h2>
+            <p className="text-sm text-[var(--text-secondary)]">Type a line or let us suggest one.</p>
           </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  void handlePredict();
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
-                disabled={predicting}
-              >
-                {predicting ? "Predicting..." : "Predict a status"}
-              </button>
-            {predictError && <span className="text-sm text-red-400">{predictError}</span>}
-          </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  void handlePredict();
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
-                disabled={predicting}
-              >
-                {predicting ? "Predicting..." : "Predict for me"}
-              </button>
-            {predictError && <span className="text-sm text-red-400">{predictError}</span>}
-          </div>
+
+          {predictError && <span className="text-sm text-red-400">{predictError}</span>}
+
           <form className="grid gap-4" onSubmit={handleSubmit}>
-            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-4 sm:p-5">
+            <div className="min-w-0 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-3 sm:p-5">
               <TextArea
                 label="What do you want to post?"
                 placeholder="Sometimes it's better to choose the red pill."
@@ -191,17 +147,30 @@ export default function CreatorsLanding() {
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {suggestedTerms.map((term) => (
-                <button
-                  key={term}
-                  type="button"
-                  onClick={() => setText(term)}
-                  className="px-3 py-1.5 text-sm rounded-full border border-[var(--border-color)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--text-secondary)] transition-colors"
-                >
-                  {term}
-                </button>
-              ))}
+            <div className="flex flex-col gap-2">
+              {suggestedTerms.length > 4 && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSuggestionsExpanded((v) => !v)}
+                    className="text-xs font-semibold text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--text-primary)]"
+                  >
+                    {suggestionsExpanded ? "Less" : "More"}
+                  </button>
+                </div>
+              )}
+              <div className="flex w-full max-w-full min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 sm:justify-start justify-center snap-x snap-mandatory">
+            {(suggestionsExpanded ? suggestedTerms : suggestedTerms.slice(0, 4)).map((term) => (
+              <button
+                key={term.full}
+                type="button"
+                onClick={() => setText(term.full)}
+                className="whitespace-nowrap rounded-full border border-[var(--border-color)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] snap-center"
+              >
+                {term.short}
+              </button>
+            ))}
+          </div>
             </div>
 
             {status === "loading" && (

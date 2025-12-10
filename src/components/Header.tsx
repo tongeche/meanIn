@@ -121,15 +121,23 @@ export function Header() {
         </Link>
 
         <div className="hidden flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] md:flex md:gap-4">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link}
-              href="#"
-              className="rounded-md px-2 py-1 transition hover:text-[var(--text-primary)]"
-            >
-              {link}
-            </a>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const target =
+              link.toLowerCase() === "templates"
+                ? "/decode-template"
+                : link.toLowerCase() === "showcase"
+                  ? "/#showcase"
+                  : "#";
+            return (
+              <Link
+                key={link}
+                href={target}
+                className="rounded-md px-2 py-1 transition hover:text-[var(--text-primary)]"
+              >
+                {link}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">

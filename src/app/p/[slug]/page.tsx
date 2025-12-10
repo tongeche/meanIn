@@ -58,10 +58,15 @@ export default function DecodePage({ params }: PageProps) {
   const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [shareMessage, setShareMessage] = useState("");
   const [expanded, setExpanded] = useState({
-    base: true,
     context: false,
     local: false,
     history: false,
+  });
+  const [animateText, setAnimateText] = useState(false);
+  const [progress, setProgress] = useState({
+    context: 0,
+    local: 0,
+    history: 0,
   });
   const avatar = pickAvatar(slug);
 
@@ -130,33 +135,96 @@ export default function DecodePage({ params }: PageProps) {
   const toggleSection = (key: keyof typeof expanded) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+  const openSection = (key: keyof typeof expanded) => {
+    setExpanded((prev) => ({ ...prev, [key]: true }));
+  };
+  const closeSection = (key: keyof typeof expanded) => {
+    setExpanded((prev) => ({ ...prev, [key]: false }));
+  };
+
+  useEffect(() => {
+    if (status !== "ready" || !data || !data.meaning) {
+      return;
+    }
+    const targetLengths = {
+      context: data.meaning.contextualMeaning?.length || 0,
+      local: (data.meaning.localContext || "").length + (data.meaning.localExample || "").length,
+      history: data.meaning.origin?.length || 0,
+    };
+
+    if (!animateText) {
+      setProgress(targetLengths);
+      return;
+    }
+
+    setProgress({ context: 0, local: 0, history: 0 });
+
+    const step = 3;
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const next = { ...prev };
+        let done = true;
+        (Object.keys(targetLengths) as Array<keyof typeof targetLengths>).forEach((key) => {
+          const target = targetLengths[key];
+          if (target > 0 && next[key] < target) {
+            next[key] = Math.min(target, next[key] + step);
+            if (next[key] < target) done = false;
+          }
+        });
+        if (done) {
+          clearInterval(interval);
+        }
+        return next;
+      });
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [animateText, status, data]);
+
+  const animatedSlice = (key: keyof typeof progress, text?: string | null) => {
+    if (!text) return "";
+    if (!animateText) return text;
+    const len = progress[key];
+    return text.slice(0, len);
+  };
 
   return (
     <div className="relative isolate min-h-screen">
       <Header />
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-5 pt-24 pb-12">
         <header className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm uppercase tracking-[0.2em] text-[var(--text-secondary)]">
-              Decode
-            </p>
-          </div>
-        {status === "ready" && data && (
-          <div className="flex items-center gap-4 rounded-2xl bg-[var(--card-bg)] px-4 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:px-6 sm:py-5">
-            <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl"
-              style={{ backgroundColor: avatar.bg }}
+          <div className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
+            <span> </span>
+            <button
+              type="button"
+              onClick={() => setAnimateText((prev) => !prev)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                animateText
+                  ? "border-[#5b9eff]/60 bg-[#5b9eff]/10 text-white"
+                  : "border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-secondary)]"
+              }`}
+              title="Toggle typewriter animation"
             >
-              <span className="select-none">{avatar.emoji}</span>
-            </div>
-            <div className="grid gap-1">
-              <p className="text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">
-                {highlightKeyword(data.post.text, data.post.keywordText)}
-              </p>
-            </div>
+              <span className="text-sm">✴</span>
+              Animate text
+            </button>
           </div>
-        )}
-      </header>
+          {status === "ready" && data && (
+            <div className="flex items-center gap-4 rounded-2xl bg-[var(--card-bg)] px-4 py-4 shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:px-6 sm:py-5">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-2xl"
+                style={{ backgroundColor: avatar.bg }}
+              >
+                <span className="select-none">{avatar.emoji}</span>
+              </div>
+              <div className="grid gap-1">
+                <p className="text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">
+                  {highlightKeyword(data.post.text, data.post.keywordText)}
+                </p>
+              </div>
+            </div>
+          )}
+        </header>
 
       {status === "error" && (
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4 text-[var(--text-primary)]">
@@ -171,25 +239,9 @@ export default function DecodePage({ params }: PageProps) {
             <div className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
               <div className="grid gap-3 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection("base")}
-                    className="flex flex-1 items-center justify-between text-left"
-                  >
-                    <div className="text-sm font-semibold text-[var(--text-secondary)]">
-                      What it means
-                    </div>
-                    <svg
-                      className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${
-                        expanded.base ? "rotate-180" : ""
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+                  <div className="text-sm font-semibold text-[var(--text-secondary)]">
+                    What it means
+                  </div>
                   <button
                     type="button"
                     onClick={handleShare}
@@ -213,11 +265,9 @@ export default function DecodePage({ params }: PageProps) {
                     </svg>
                   </button>
                 </div>
-                {expanded.base && (
-                  <p className="text-xl font-medium leading-relaxed text-[var(--text-primary)] sm:text-2xl">
-                    {meaning.baseMeaning}
-                  </p>
-                )}
+                <p className="text-xl font-medium leading-relaxed text-[var(--text-primary)] sm:text-2xl">
+                  {meaning.baseMeaning}
+                </p>
               </div>
 
               {meaning.contextualMeaning && (
@@ -225,6 +275,8 @@ export default function DecodePage({ params }: PageProps) {
                   <button
                     type="button"
                     onClick={() => toggleSection("context")}
+                    onMouseEnter={() => openSection("context")}
+                    onMouseLeave={() => closeSection("context")}
                     className="flex w-full items-center justify-between px-4 py-4 text-left sm:px-5"
                   >
                     <div className="text-sm font-semibold text-[var(--text-secondary)]">
@@ -241,13 +293,17 @@ export default function DecodePage({ params }: PageProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  {expanded.context && (
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-out ${
+                      expanded.context ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                  >
                     <div className="px-4 pb-4 sm:px-5">
                       <p className="text-base leading-relaxed text-[var(--text-primary)]">
-                        {meaning.contextualMeaning}
+                        {animatedSlice("context", meaning.contextualMeaning)}
                       </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
@@ -256,6 +312,8 @@ export default function DecodePage({ params }: PageProps) {
                   <button
                     type="button"
                     onClick={() => toggleSection("local")}
+                    onMouseEnter={() => openSection("local")}
+                    onMouseLeave={() => closeSection("local")}
                     className="flex w-full items-center justify-between px-4 py-4 text-left sm:px-5"
                   >
                     <div className="text-sm font-semibold text-[var(--text-secondary)]">
@@ -272,22 +330,30 @@ export default function DecodePage({ params }: PageProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  {expanded.local && (
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-out ${
+                      expanded.local ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                  >
                     <div className="grid gap-3 px-4 pb-4 sm:px-5">
                       {meaning.localContext && (
                         <div className="grid gap-1">
                           <div className="text-xs font-medium text-[var(--text-secondary)]">Local context</div>
-                          <p className="text-base text-[var(--text-primary)]">{meaning.localContext}</p>
+                          <p className="text-base text-[var(--text-primary)]">
+                            {animatedSlice("local", meaning.localContext)}
+                          </p>
                         </div>
                       )}
                       {meaning.localExample && (
                         <div className="grid gap-1">
                           <div className="text-xs font-medium text-[var(--text-secondary)]">Example</div>
-                          <p className="text-base italic text-[var(--text-primary)]">{meaning.localExample}</p>
+                          <p className="text-base italic text-[var(--text-primary)]">
+                            {animatedSlice("local", meaning.localExample)}
+                          </p>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
@@ -296,6 +362,8 @@ export default function DecodePage({ params }: PageProps) {
                   <button
                     type="button"
                     onClick={() => toggleSection("history")}
+                    onMouseEnter={() => openSection("history")}
+                    onMouseLeave={() => closeSection("history")}
                     className="flex w-full items-center justify-between px-4 py-4 text-left sm:px-5"
                   >
                     <div className="text-sm font-semibold text-[var(--text-secondary)]">
@@ -312,13 +380,17 @@ export default function DecodePage({ params }: PageProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  {expanded.history && (
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-out ${
+                      expanded.history ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                  >
                     <div className="px-4 pb-4 sm:px-5">
                       <p className="text-sm leading-relaxed text-[var(--text-primary)] sm:text-base">
-                        {meaning.origin}
+                        {animatedSlice("history", meaning.origin)}
                       </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 

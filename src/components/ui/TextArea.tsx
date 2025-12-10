@@ -34,9 +34,9 @@ export function TextArea({
   }, [value, maxHeight]);
 
   return (
-    <label className="flex w-full flex-col gap-2">
+    <label className="flex w-full min-w-0 flex-col gap-2">
       {label && <span className="text-sm text-[var(--text-secondary)]">{label}</span>}
-      <div className="flex items-start gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-3">
+      <div className="flex w-full min-w-0 items-start gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-3 sm:px-4">
         {prefix && (
           <span className="pl-1 text-xl font-semibold text-[var(--text-primary)]">
             {prefix}
@@ -47,7 +47,7 @@ export function TextArea({
           rows={2}
           value={value}
           className={cn(
-            "w-full resize-none border-0 bg-transparent text-base text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-0",
+            "w-full min-w-0 resize-none border-0 bg-transparent text-base text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-0",
             "leading-6",
             className,
           )}

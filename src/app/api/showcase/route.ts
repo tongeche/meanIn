@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       query = query.ilike("keyword_text", category);
     }
     
-    const { data: posts, error } = await query.limit(9);
+    const { data: posts, error } = await query.limit(30);
 
     if (error) {
       console.error("Error fetching showcase posts:", error);
@@ -95,11 +95,17 @@ export async function GET(request: Request) {
     if (effectiveTag) {
       const { data: tagRow } = await supabase
         .from("tags")
-        .select("label, slug")
+        .select("label, slug, bg_gradient, text_color, accent_color")
         .or(`slug.eq.${effectiveTag},label.ilike.${effectiveTag}`)
         .maybeSingle();
 
-      const tagMeta = tagRow || { label: effectiveTag, slug: effectiveTag, bg_gradient: null, text_color: null, accent_color: null };
+      const tagMeta = {
+        label: tagRow?.label ?? effectiveTag,
+        slug: tagRow?.slug ?? effectiveTag,
+        bg_gradient: tagRow?.bg_gradient ?? null,
+        text_color: tagRow?.text_color ?? null,
+        accent_color: tagRow?.accent_color ?? null,
+      };
 
       const { data: samplePost } = await supabase
         .from("posts")
