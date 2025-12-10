@@ -10,7 +10,7 @@ import { createPost } from "@/lib/api";
 import type { CreatePostResult, Platform } from "@/lib/types";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function CreatorsLanding() {
   const DEFAULT_PLATFORM: Platform = "whatsapp-status";
@@ -43,44 +43,6 @@ export default function CreatorsLanding() {
     "Reflective",
     "Busy",
   ];
-  const templateCards = [
-    {
-      text: "Silence isn’t empty—it’s where I keep the parts of me you don’t see.",
-      keyword: "silence",
-      slug: "silence",
-      badge: "Soft & coded",
-    },
-    {
-      text: "We’re fine. That’s the loudest lie two people can tell together.",
-      keyword: "fine",
-      slug: "fine",
-      badge: "Relationship",
-    },
-    {
-      text: "Work is loud; purpose is quiet. I’m tuning the static.",
-      keyword: "purpose",
-      slug: "purpose",
-      badge: "Work vibe",
-    },
-    {
-      text: "If you know the song, you know what I mean. I’m on the verse before the chorus.",
-      keyword: "song",
-      slug: "song",
-      badge: "Music hint",
-    },
-    {
-      text: "Weekends feel like sunlight on the floor—here for a moment, gone if you blink.",
-      keyword: "weekends",
-      slug: "weekends",
-      badge: "Time window",
-    },
-    {
-      text: "Inside jokes age like wine. Ours just got another year older.",
-      keyword: "inside",
-      slug: "inside",
-      badge: "Shared code",
-    },
-  ];
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -100,47 +62,50 @@ export default function CreatorsLanding() {
     }
   };
 
-  const handlePredict = async (seedOverride?: string) => {
-    if (!supabaseBrowser) {
-      setPredictError("Supabase client not configured.");
-      return;
-    }
-    setPredicting(true);
-    setPredictError("");
-    try {
-      const { data: sessionData } = await supabaseBrowser.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        throw new Error("Please sign in to get suggestions.");
+  const handlePredict = useCallback(
+    async (seedOverride?: string) => {
+      if (!supabaseBrowser) {
+        setPredictError("Supabase client not configured.");
+        return;
       }
-      const seedPayload = seedOverride || text || dayMood;
-      const res = await fetch("/api/creator-predict", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ seed: seedPayload }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Could not fetch suggestions");
+      setPredicting(true);
+      setPredictError("");
+      try {
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          throw new Error("Please sign in to get suggestions.");
+        }
+        const seedPayload = seedOverride || text || dayMood;
+        const res = await fetch("/api/creator-predict", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ seed: seedPayload }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Could not fetch suggestions");
+        }
+        setPredictions(data.suggestions || []);
+      } catch (error) {
+        console.error(error);
+        setPredictError(error instanceof Error ? error.message : "Could not fetch suggestions");
+      } finally {
+        setPredicting(false);
       }
-      setPredictions(data.suggestions || []);
-    } catch (error) {
-      console.error(error);
-      setPredictError(error instanceof Error ? error.message : "Could not fetch suggestions");
-    } finally {
-      setPredicting(false);
-    }
-  };
+    },
+    [dayMood, text],
+  );
 
   useEffect(() => {
     if (!autoPredicted) {
       setAutoPredicted(true);
       void handlePredict();
     }
-  }, [autoPredicted]);
+  }, [autoPredicted, handlePredict]);
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -176,26 +141,30 @@ export default function CreatorsLanding() {
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => handlePredict()}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
-              disabled={predicting}
-            >
-              {predicting ? "Predicting..." : "Predict a status"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  void handlePredict();
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
+                disabled={predicting}
+              >
+                {predicting ? "Predicting..." : "Predict a status"}
+              </button>
             {predictError && <span className="text-sm text-red-400">{predictError}</span>}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handlePredict}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
-              disabled={predicting}
-            >
-              {predicting ? "Predicting..." : "Predict for me"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  void handlePredict();
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--text-secondary)] disabled:opacity-60"
+                disabled={predicting}
+              >
+                {predicting ? "Predicting..." : "Predict for me"}
+              </button>
             {predictError && <span className="text-sm text-red-400">{predictError}</span>}
           </div>
           <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -297,14 +266,14 @@ export default function CreatorsLanding() {
                   </button>
                 </div>
               </div>
-            ))}
-            {predictions.length === 0 && (
-              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm text-[var(--text-secondary)]">
-                Tap "Predict a status" above to get fresh suggestions.
-              </div>
-            )}
-          </div>
-        </section>
+          ))}
+          {predictions.length === 0 && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm text-[var(--text-secondary)]">
+              Tap Predict a status above to get fresh suggestions.
+            </div>
+          )}
+        </div>
+      </section>
       </main>
       <Footer />
       <ShareModal

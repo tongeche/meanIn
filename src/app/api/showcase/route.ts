@@ -11,7 +11,16 @@ export interface ShowcasePost {
 
 export interface ShowcaseResponse {
   posts: ShowcasePost[];
-  categories: string[];
+  categories: { label: string; slug: string; bg_gradient?: string | null; text_color?: string | null; accent_color?: string | null }[];
+  tagDetail?: {
+    tag: { label: string; slug: string; bg_gradient?: string | null; text_color?: string | null; accent_color?: string | null };
+    samplePost?: { text: string; keyword_text: string | null };
+    meaning?: {
+      short_definition: string | null;
+      full_explanation: string | null;
+      examples: string[] | string | null;
+    };
+  };
 }
 
 // GET /api/showcase - Fetch posts for showcase with category filters
@@ -19,6 +28,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
+    const tagParam = searchParams.get("tag");
     
     const supabase = createSupabaseServerClient();
     
@@ -41,27 +51,92 @@ export async function GET(request: Request) {
       return NextResponse.json({ posts: [], categories: [] });
     }
 
-    // Get distinct categories
-    const { data: categoryData } = await supabase
-      .from("posts")
-      .select("keyword_text")
-      .not("keyword_text", "is", null)
+    // Prefer tags from the tags table; fall back to distinct keywords
+    const { data: tagData } = await supabase
+      .from("tags")
+      .select("label, slug, bg_gradient, text_color, accent_color")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(20);
 
-    const categorySet = new Set<string>();
-    for (const row of categoryData || []) {
-      if (row.keyword_text?.trim()) {
-        categorySet.add(row.keyword_text.trim());
+    let categories: { label: string; slug: string; bg_gradient?: string | null; text_color?: string | null; accent_color?: string | null }[] = [];
+    if (tagData && tagData.length > 0) {
+      categories = tagData
+        .map((t) => ({
+          label: t.label || t.slug || "",
+          slug: t.slug || t.label || "",
+          bg_gradient: t.bg_gradient,
+          text_color: t.text_color,
+          accent_color: t.accent_color,
+        }))
+        .filter((t) => Boolean(t.slug));
+    } else {
+      const { data: categoryData } = await supabase
+        .from("posts")
+        .select("keyword_text")
+        .not("keyword_text", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      const categorySet = new Set<string>();
+      for (const row of categoryData || []) {
+        if (row.keyword_text?.trim()) {
+          categorySet.add(row.keyword_text.trim());
+        }
       }
+      
+      categories = Array.from(categorySet)
+        .slice(0, 12)
+        .map((c) => ({ label: c, slug: c }));
     }
-    
-    // Get top 5 categories
-    const categories = Array.from(categorySet).slice(0, 5);
+
+    // Tag detail when requested
+    let tagDetail = undefined;
+    const effectiveTag = tagParam || categories[0]?.slug;
+    if (effectiveTag) {
+      const { data: tagRow } = await supabase
+        .from("tags")
+        .select("label, slug")
+        .or(`slug.eq.${effectiveTag},label.ilike.${effectiveTag}`)
+        .maybeSingle();
+
+      const tagMeta = tagRow || { label: effectiveTag, slug: effectiveTag, bg_gradient: null, text_color: null, accent_color: null };
+
+      const { data: samplePost } = await supabase
+        .from("posts")
+        .select("text, keyword_text, keyword_term_id")
+        .eq("tag_slug", tagMeta.slug)
+        .order("created_at", { ascending: false })
+        .maybeSingle();
+
+      let meaning = undefined;
+      if (samplePost?.keyword_term_id) {
+        const { data: meaningRow } = await supabase
+          .from("term_meanings")
+          .select("short_definition, full_explanation, examples")
+          .eq("term_id", samplePost.keyword_term_id as string)
+          .maybeSingle();
+        meaning = meaningRow || undefined;
+      }
+
+      tagDetail = {
+        tag: {
+          label: tagMeta.label || tagMeta.slug,
+          slug: tagMeta.slug,
+          bg_gradient: tagMeta.bg_gradient,
+          text_color: tagMeta.text_color,
+          accent_color: tagMeta.accent_color,
+        },
+        samplePost: samplePost
+          ? { text: samplePost.text, keyword_text: samplePost.keyword_text }
+          : undefined,
+        meaning,
+      };
+    }
 
     return NextResponse.json({ 
       posts: posts || [], 
-      categories 
+      categories,
+      tagDetail,
     });
   } catch (error) {
     console.error("Error in GET /api/showcase:", error);

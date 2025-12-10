@@ -64,7 +64,37 @@ export async function POST(request: Request) {
       );
     }
 
-  const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseServerClient();
+
+    // Short-circuit if this exact text already exists to avoid duplicates
+    const { data: existingPost } = await supabase
+      .from("posts")
+      .select("public_slug, tag_slug, keyword_text, keyword_term_id")
+      .eq("text", text)
+      .order("created_at", { ascending: false })
+      .maybeSingle();
+
+    if (existingPost?.public_slug) {
+      const slug = existingPost.public_slug as string;
+      // Optionally update tag if caller supplied one
+      if (providedTagSlug && providedTagSlug !== existingPost.tag_slug) {
+        await supabase
+          .from("posts")
+          .update({ tag_slug: providedTagSlug })
+          .eq("public_slug", slug);
+      }
+
+      const shareUrl = `${appBaseUrl()}/p/${slug}`;
+      const cardUrl = `${process.env.NEXT_PUBLIC_CDN_URL || appBaseUrl()}/cards/${slug}.svg`;
+
+      return NextResponse.json({
+        slug,
+        shareUrl,
+        cardUrl,
+        keyword: existingPost.keyword_text,
+        tagSlug: providedTagSlug || existingPost.tag_slug,
+      });
+    }
 
   const keyword = await detectOrCreateKeyword(supabase, text);
   const termInfo = await ensureTermExists(supabase, keyword);
@@ -296,28 +326,6 @@ function safeJson(str: string) {
     return {};
   }
 }
-
-async function recordInterest(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
-  termId: string,
-  slug: string,
-  source: "viewer" | "creator",
-) {
-  try {
-    await supabase
-      .from("term_requests")
-      .insert({
-        term_id: termId,
-        source,
-        post_slug: slug,
-      })
-      .select("id")
-      .maybeSingle();
-  } catch (error) {
-    console.warn("Failed to record term request", error);
-  }
-}
-
 // Tag detection keywords
 const TAG_KEYWORDS: Record<string, string[]> = {
   love: ["love", "heart", "relationship", "romance", "miss", "crush", "feelings", "bae", "babe", "forever"],
